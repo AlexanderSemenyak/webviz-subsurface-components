@@ -1,14 +1,22 @@
-import dash
-from dash.dependencies import Input, Output
-import webviz_subsurface_components
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2020 - Equinor ASA.
+
 import json
+from pathlib import Path
+
+import dash
 import dash_html_components as html
+
+import webviz_subsurface_components
+
 
 # Basic test for the component rendering.
 def test_render(dash_duo):
 
-    with open("tests/data/morris_data.json", "r") as f:
-        data = json.loads(f.read())
+    data = json.loads(Path("tests/data/morris_data.json").read_text(encoding="utf8"))
 
     app = dash.Dash(__name__)
     app.layout = html.Div(

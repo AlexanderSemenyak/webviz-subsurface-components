@@ -1,28 +1,47 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2020 - Equinor ASA.
+
 import os
 import json
 from setuptools import setup
 
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", encoding="utf8") as fh:
     long_description = fh.read()
 
-with open(os.path.join("webviz_subsurface_components", "package.json")) as f:
+with open(
+    os.path.join("webviz_subsurface_components", "package.json"), encoding="utf8"
+) as f:
     package = json.load(f)
 
-package_name = package["name"].replace(" ", "_").replace("-", "_")
+package_name = (
+    package["name"]
+    .replace(" ", "_")
+    .replace("-", "_")
+    .replace("/", "_")
+    .replace("@", "")
+)
 
-INSTALL_REQUIRES = ["dash>=1.6"]
+INSTALL_REQUIRES = [
+    "dash>=1.6",
+    "numpy>=1.14",
+    "pandas>=0.25",
+]
 
 TESTS_REQUIRE = [
     "bandit",
-    "black>=19.10b0",
+    "black>=20.8b1",
+    "jsonpatch>=1.32",
+    "jsonpointer>=2.1",
     "matplotlib>=3.0",
-    "numpy>=1.14",
-    "pandas>=0.25",
     "Pillow>=6.0",
     "pylint>=2.4",
     "scipy>=1.2",
     "selenium>=3.141",
+    "webviz-core-components>=0.5.0",
 ]
 
 # 'dash[testing]' to be added in TEST_REQUIRE when
@@ -54,6 +73,6 @@ setup(
         "Topic :: Multimedia :: Graphics",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Visualization",
-        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
     ],
 )

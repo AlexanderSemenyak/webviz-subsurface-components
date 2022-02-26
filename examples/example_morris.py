@@ -1,6 +1,14 @@
-import webviz_subsurface_components
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2020 - Equinor ASA.
+
 import dash
 import dash_html_components as html
+
+import webviz_subsurface_components
+
 
 app = dash.Dash(__name__)
 
@@ -57,12 +65,11 @@ parameters = [
         "interactions": [0.0, 114457.6, 180225.4, 201267.2],
     },
 ]
-parameter = "FOPT"
 
 app.layout = html.Div(
     children=[
         webviz_subsurface_components.Morris(
-            id="morris_chart", output=output, parameters=parameters, parameter=parameter
+            id="morris_chart", output=output, parameters=parameters, parameter="FOPT"
         ),
     ]
 )

@@ -10,7 +10,7 @@ on:
       - published
   schedule:
     # Run CI daily and check that tests are working with latest dependencies
-    - cron:  '0 0 * * *'
+    - cron: "0 0 * * *"
 
 jobs:
   webviz-subsurface-components:
@@ -19,7 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8']
+        include:
+          - python-version: 3.6
+            run-performance-tests: false
+          - python-version: 3.7
+            run-performance-tests: false
+          - python-version: 3.8
+            run-performance-tests: false
+          - python-version: 3.9
+            run-performance-tests: false
+          - python-version: 3.9 # This particular job in the matrix is allowed to fail(for performance test)
+            run-performance-tests: true
 
     steps:
       - name: 📖 Checkout commit locally
@@ -30,16 +40,26 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Use Node.js 15.12
+        uses: actions/setup-node@v1
+        with:
+          node-version: "15.12"
+
       - name: 📦 Install build dependencies
+        # The deckgl types package runs a postscript to setup, but since we ignore scripts, we need to set it up manually.
         run: |
-          npm ci --ignore-scripts
-          npm run postinstall
+          npm ci --ignore-scripts --prefix ./react
+          npm run setup-deckgl-types --prefix ./react
+          npm run copy-package-json --prefix ./react
           pip install .[dependencies]
           pip install dash[dev]
-  
+
+      - name: ⏭️ Modifications when prerelease
+        if: github.event.release.prerelease
+        run: echo "NPM_PUBLISH_TAG=next" >> $GITHUB_ENV
+
       - name: 🏗️ Build JavaScript part
-        run: |
-          npm run build
+        run: npm run build --prefix ./react
 
       - name: 📦 Install webviz-subsurface-components with dependencies
         run: |
@@ -52,21 +72,44 @@ jobs:
           pip install dash[testing]
           wget https://chromedriver.storage.googleapis.com/$(wget https://chromedriver.storage.googleapis.com/LATEST_RELEASE -q -O -)/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
-  
+
       - name: 🧾 List all installed packages
         run: pip freeze
 
-      - name: 🕵️ Check code style & linting
+      - name: 🕵️ Check code style, linting and typechecking
+        if: matrix.python-version == '3.8'
         run: |
-          npm run linting
-          black --check webviz_subsurface_components tests setup.py
-          bandit -r -c ./bandit.yml webviz_subsurface_components tests setup.py
+          npm run validate --prefix ./react
+          black --check webviz_subsurface_components/ tests/ setup.py examples/
+          pylint webviz_subsurface_components/ tests/ setup.py examples/*.py --ignore well-completions-csv2json.py
+          bandit -r -c ./bandit.yml webviz_subsurface_components/ tests/ setup.py examples/
+
+      - name: 🤖 Run performance tests
+        if: github.event_name != 'release' && matrix.run-performance-tests
+        run: npm run test_perf --prefix ./react
 
       - name: 🤖 Run tests
+        if: github.event_name != 'release' # Related to https://github.com/equinor/webviz-subsurface-components/issues/409
         run: |
-          npm run test
+          npm run test_correctness --prefix ./react
           pytest ./tests --headless
-        
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+
+      - name: 🔼 Build and publish Node.js package
+        if: github.event_name == 'release' && matrix.python-version == '3.6'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        working-directory: ./react
+        run: |
+          cp ../README.md .
+          npm version --no-git-tag-version ${GITHUB_REF//refs\/tags\//}
+          npm config set '//registry.npmjs.org/:_authToken' '${NPM_TOKEN}'
+          npm config set always-auth true
+          # Use 'latest' tag if $NPM_PUBLISH_TAG is not set:
+          npm publish --access public --tag ${NPM_PUBLISH_TAG:-latest}
+
       - name: 🚢 Build and deploy Python package
         if: github.event_name == 'release' && matrix.python-version == '3.6'
         env:
@@ -79,12 +122,15 @@ jobs:
           twine upload dist/*
 
       - name: 📚 Build demo application
-        run: npm run build:js-demo
+        run: npm run build:js-demo --prefix ./react
 
-      - name: 📚 Update GitHub demo application
+      - name: 📚 Build Storybook
+        run: npm run build-storybook --prefix ./react
+
+      - name: 📚 Update Storybook and GitHub demo application
         if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || contains(github.event.head_commit.message, '[deploy test]')) && matrix.python-version == '3.6'
         run: |
-          cp ./{index.html,output.css,output.js} ..
+          cp -r ./react/{index.html,output.css,output.js,storybook-static} ..
 
           git config --local user.email "webviz-github-action"
           git config --local user.name "webviz-github-action"
@@ -93,7 +139,7 @@ jobs:
           git clean -f -f -d -x
           git rm -r --ignore-unmatch *
 
-          mv ../{index.html,output.css,output.js} .
+          mv ../{index.html,output.css,output.js,storybook-static} .
 
           git add .
 

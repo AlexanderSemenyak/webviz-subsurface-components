@@ -1,26 +1,35 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (C) 2020 - Equinor ASA.
+
 from __future__ import print_function as _
 
+import json
 import os as _os
 import sys as _sys
-import json
 import warnings
 
-from pkg_resources import get_distribution, DistributionNotFound
-
 import dash as _dash
+from pkg_resources import DistributionNotFound, get_distribution
 
-# noinspection PyUnresolvedReferences
 from ._imports_ import *
 from ._imports_ import __all__
+from .py_expression_eval import Parser
+from .VectorCalculatorWrapper import (
+    ExpressionInfo,
+    ExternalParseData,
+    VariableVectorMapInfo,
+)
+from .VectorCalculatorWrapper import VectorCalculatorWrapper as VectorCalculator
+from .VectorDefinitions import VectorDefinition, VectorDefinitions
 
 try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
     # package is not installed
-
-    # Use the local package instead - set a random version
-    # To run locally, make sure to uninstall the webviz_subsurface_components package in the environment
-    __version__ = "1.0.0"
+    pass
 
 if not hasattr(_dash, "development"):
     print(
@@ -33,10 +42,16 @@ if not hasattr(_dash, "development"):
 
 _basepath = _os.path.dirname(__file__)
 _filepath = _os.path.abspath(_os.path.join(_basepath, "package.json"))
-with open(_filepath) as f:
+with open(_filepath, encoding="utf8") as f:
     package = json.load(f)
 
-package_name = package["name"].replace(" ", "_").replace("-", "_")
+package_name = (
+    package["name"]
+    .replace(" ", "_")
+    .replace("-", "_")
+    .replace("/", "_")
+    .replace("@", "")
+)
 
 _current_path = _os.path.dirname(_os.path.abspath(__file__))
 
