@@ -29,6 +29,8 @@ interface Props {
     maxVisibleTrackNum?: number; // default is horizontal ? 3: 5
     maxContentZoom?: number; // default is 256
 
+    checkDatafileSchema?: boolean;
+
     // callbacks:
     onCreateController?: (controller: WellLogController) => void;
     onInfo?: (
@@ -72,17 +74,6 @@ class WellLogViewWithScroller extends Component<Props> {
     }
 
     shouldComponentUpdate(nextProps: Props): boolean {
-        //console.log("is=", Object.is(this.props, nextProps));
-        /*
-            //compare (Object.keys(nextProps), Object.keys(this.props))
-            for (const p in nextProps) {
-                // eslint-disable-next-line
-                if ((nextProps as any)[p] !== (this.props as any)[p]) {
-                    console.log(p /*, nextProps[p], this.props[p]* /);
-                    return true;
-                }
-            }
-        return false;*/
         return !Object.is(this.props, nextProps);
     }
 
@@ -215,6 +206,7 @@ class WellLogViewWithScroller extends Component<Props> {
                     hideLegend={this.props.hideLegend}
                     maxVisibleTrackNum={this.props.maxVisibleTrackNum}
                     maxContentZoom={this.props.maxContentZoom}
+                    checkDatafileSchema={this.props.checkDatafileSchema}
                     primaryAxis={this.props.primaryAxis}
                     axisTitles={this.props.axisTitles}
                     axisMnemos={this.props.axisMnemos}

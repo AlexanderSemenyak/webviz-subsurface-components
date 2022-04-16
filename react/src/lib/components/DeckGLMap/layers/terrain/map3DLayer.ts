@@ -3,8 +3,10 @@ import TerrainMapLayer, {
     TerrainMapLayerProps,
     TerrainMapLayerData,
     DECODER,
+    Material,
 } from "./terrainMapLayer";
 import { ExtendedLayerProps } from "../utils/layerTools";
+import { RGBColor } from "@deck.gl/core/utils/color";
 import { layersDefaultProps } from "../layersDefaultProps";
 import { TerrainLoader } from "@loaders.gl/terrain";
 import { ImageLoader } from "@loaders.gl/images";
@@ -196,7 +198,15 @@ export interface Map3DLayerProps<D> extends ExtendedLayerProps<D> {
     rotDeg: number;
 
     // Contourlines reference point and interval.
+    // A value of [-1.0, -1.0] will disable contour lines.
+    // default value: [-1.0, -1.0]
     contours: [number, number];
+
+    // Contourlines may be calculated either on depth/z-value or on property/texture value
+    // If this is set to false, lines will follow properties instead of depth.
+    // In 2D mode this is always the case regardless.
+    // default: true
+    isContoursDepth: boolean;
 
     // Name of color map. E.g "PORO"
     colorMapName: string;
@@ -210,11 +220,29 @@ export interface Map3DLayerProps<D> extends ExtendedLayerProps<D> {
     // Use color map in this range.
     colorMapRange: [number, number];
 
+    // Clamp colormap to this color at ends.
+    // Given as array of three values (r,g,b) e.g: [255, 0, 0]
+    // If not set or set to true, it will clamp to color map min and max values.
+    // If set to false the clamp color will be completely transparent.
+    colorMapClampColor: RGBColor | undefined | boolean;
+
     // If true readout will be z value (depth). Otherwise it is the texture property value.
     isReadoutDepth: boolean;
 
     // Will calculate normals and enable phong shading.
     enableSmoothShading: boolean;
+
+    // Surface material properties.
+    // material: true  = default material,
+    //           false = no material,
+    //           or full spec:
+    //      material: {
+    //           ambient: 0.35,
+    //           diffuse: 0.6,
+    //           shininess: 32,
+    //           specularColor: [255, 255, 255],
+    //       }
+    material: Material;
 }
 
 export default class Map3DLayer extends CompositeLayer<
@@ -284,8 +312,10 @@ export default class Map3DLayer extends CompositeLayer<
                 colorMapName: this.props.colorMapName,
                 propertyValueRange: this.props.propertyValueRange,
                 colorMapRange: this.props.colorMapRange,
+                colorMapClampColor: this.props.colorMapClampColor,
                 isReadoutDepth: this.props.isReadoutDepth,
-                isContoursDepth: isMesh,
+                isContoursDepth: !isMesh ? false : this.props.isContoursDepth,
+                material: this.props.material,
             })
         );
         return [layer];

@@ -6,7 +6,7 @@ export const layersDefaultProps: Record<string, unknown> = {
         pickable: true,
         visible: true,
         valueRange: { type: "array", value: [0, 1] },
-        colorMapRange: { type: "array", value: [0, 1] },
+        colorMapRange: { type: "array" },
         valueDecoder: {
             rgbScaler: [1, 1, 1],
             // By default, scale the [0, 256*256*256-1] decoded values to [0, 1]
@@ -26,7 +26,6 @@ export const layersDefaultProps: Record<string, unknown> = {
         visible: true,
         rotDeg: 0,
         valueRange: { type: "array", value: [0, 1] },
-        colorMapRange: { type: "array", value: [0, 1] },
         lightDirection: [1, 1, 1],
         ambientLightIntensity: 0.5,
         diffuseLightIntensity: 0.5,
@@ -75,12 +74,14 @@ export const layersDefaultProps: Record<string, unknown> = {
         // Bounding box of the terrain image, [minX, minY, maxX, maxY] in world coordinates
         bounds: { type: "array", value: null, false: true, compare: true },
         propertyValueRange: { type: "array", value: [0, 1] },
-        colorMapRange: { type: "array", value: [0, 1] },
         rotDeg: 0,
         contours: [-1.0, -1.0],
+        // If contour lines should follow depth or properties.
+        isContoursDepth: true,
         // readout is default property value but if set to true it will be depth/z-value.
         isReadoutDepth: false,
         enableSmoothShading: true,
+        material: true,
     },
     GridLayer: {
         "@@type": "GridLayer",
@@ -98,6 +99,7 @@ export const layersDefaultProps: Record<string, unknown> = {
         opacity: 1,
         lineWidthScale: 5,
         pointRadiusScale: 8,
+        dashed: false,
         outline: true,
         logRadius: 6,
         logCurves: true,
@@ -121,6 +123,12 @@ export const layersDefaultProps: Record<string, unknown> = {
         pickable: true,
         visible: true,
         selectedPie: "@@editedData.selectedPie", // used to get data from deckgl layer
+    },
+    AxesLayer: {
+        "@@type": "AxesLayer",
+        name: "Axes",
+        id: "axes-layer",
+        visible: true,
     },
     DrawingLayer: {
         "@@type": "DrawingLayer",

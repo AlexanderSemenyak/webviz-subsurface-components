@@ -18,19 +18,7 @@ import {
 
 import "!vue-style-loader!css-loader!sass-loader!./styles.scss";
 
-import Ajv from "ajv";
-import { ValidateFunction } from "ajv/dist/types/index";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const inputSchema = require("../../../inputSchema/WellLogTemplate.json");
-const ajv = new Ajv();
-let schemaError = "";
-let validate: ValidateFunction<unknown> | null = null;
-try {
-    validate = ajv.compile(inputSchema);
-} catch (e) {
-    schemaError = "Wrong JSON schema for WellLogTemplate. " + String(e);
-    console.error(schemaError);
-}
+import { validateSchema } from "../../../inputSchema/validator";
 
 import { select } from "d3";
 
@@ -591,13 +579,30 @@ export interface WellLogController {
 import { Info } from "./InfoTypes";
 
 interface Props {
+    /**
+     * Array of JSON objects describing well log data.
+     */
     welllog: WellLog;
+    /**
+     * Prop containing track template data.
+     */
     template: Template;
+    /**
+     * Prop containing color table data.
+     */
     colorTables: ColorTable[];
+    /**
+     * Orientation of the track plots on the screen.
+     */
     horizontal?: boolean;
     primaryAxis: string;
-
+    /**
+     * Show Titles on the tracks
+     */
     hideTitles?: boolean;
+    /**
+     * Hide Legends on the tracks
+     */
     hideLegend?: boolean;
 
     axisTitles: Record<string, string>;
@@ -605,6 +610,11 @@ interface Props {
 
     maxVisibleTrackNum?: number; // default is horizontal ? 3: 5
     maxContentZoom?: number; // default is 256
+
+    /**
+     * Validate JSON datafile against schems
+     */
+    checkDatafileSchema?: boolean;
 
     // callbacks:
     onCreateController?: (controller: WellLogController) => void;
@@ -615,13 +625,31 @@ interface Props {
         iTo: number
     ) => void;
 
-    onTrackScroll?: () => void; // called when track scrolling is changed
-    onTrackSelection?: () => void; // called when track selection is changed
-    onContentRescale?: () => void; // called when content zoom and scrolling are changed
-    onContentSelection?: () => void; // called when content zoom and scrolling are changed
+    /**
+     * called when track scrolling is changed
+     */
+    onTrackScroll?: () => void;
+    /**
+     * called when track selection is changed
+     */
+    onTrackSelection?: () => void;
+    /**
+     * called when content zoom and scrolling are changed
+     */
+    onContentRescale?: () => void;
+    /**
+     * called when content zoom and scrolling are changed
+     */
+    onContentSelection?: () => void;
 
-    onTrackMouseEvent?: (wellLogView: WellLogView, ev: TrackMouseEvent) => void; // called when mouse click on a track
-    onTemplateChanged?: () => void; // called when template is changed
+    /**
+     * called when mouse click on a track
+     */
+    onTrackMouseEvent?: (wellLogView: WellLogView, ev: TrackMouseEvent) => void;
+    /**
+     * called when template is changed
+     */
+    onTemplateChanged?: () => void;
 }
 
 interface State {
@@ -642,6 +670,9 @@ class WellLogView extends Component<Props, State> implements WellLogController {
 
     constructor(props: Props) {
         super(props);
+
+        if (!props.welllog)
+            throw "No props.welllog given in wellLogView component";
 
         this.container = undefined;
         this.logController = undefined;
@@ -673,7 +704,7 @@ class WellLogView extends Component<Props, State> implements WellLogController {
         this.createLogViewer();
 
         this.template = JSON.parse(JSON.stringify(this.props.template)); // save external template content to current
-        this.setTracks();
+        this.setTracks(true);
     }
 
     shouldComponentUpdate(nextProps: Props, nextState: State): boolean {
@@ -694,6 +725,8 @@ class WellLogView extends Component<Props, State> implements WellLogController {
         if (this.state.errorText !== nextState.errorText) return true;
 
         if (this.props.maxContentZoom !== nextProps.maxContentZoom) return true;
+        if (this.props.checkDatafileSchema !== nextProps.checkDatafileSchema)
+            return true;
 
         // callbacks
 
@@ -711,6 +744,7 @@ class WellLogView extends Component<Props, State> implements WellLogController {
         let selection: [number | undefined, number | undefined] | undefined =
             undefined; // content selection to restore
         let shouldSetTracks = false;
+        let checkSchema = false;
         if (
             this.props.horizontal !== prevProps.horizontal ||
             this.props.hideTitles !== prevProps.hideTitles ||
@@ -723,11 +757,16 @@ class WellLogView extends Component<Props, State> implements WellLogController {
             shouldSetTracks = true;
         }
 
-        if (this.props.welllog !== prevProps.welllog) {
+        if (
+            this.props.welllog !== prevProps.welllog ||
+            this.props.checkDatafileSchema !== prevProps.checkDatafileSchema
+        ) {
             shouldSetTracks = true;
+            checkSchema = true;
         } else if (this.props.template !== prevProps.template) {
             this.template = JSON.parse(JSON.stringify(this.props.template)); // save external template content to current
             shouldSetTracks = true;
+            checkSchema = true;
         } else if (this.props.colorTables !== prevProps.colorTables) {
             selection = this.getContentSelection();
             selectedTrackIndeces = this.getSelectedTrackIndeces();
@@ -745,7 +784,7 @@ class WellLogView extends Component<Props, State> implements WellLogController {
         }
 
         if (shouldSetTracks) {
-            this.setTracks(); // use this.template
+            this.setTracks(checkSchema); // use this.template
             setSelectedTrackIndeces(this.logController, selectedTrackIndeces);
             if (selection) this.selectContent(selection);
         } else if (
@@ -809,16 +848,14 @@ class WellLogView extends Component<Props, State> implements WellLogController {
 
         if (checkSchema) {
             //check against the json schema
-            let errorText = "";
-            if (!validate) errorText = schemaError;
-            else if (!validate(this.template))
-                errorText =
-                    validate.errors && validate.errors[0]
-                        ? validate.errors[0].dataPath +
-                          ": " +
-                          validate.errors[0].message
-                        : "JSON schema validation failed";
-            this.setState({ errorText: errorText });
+            try {
+                validateSchema(this.template, "WellLogTemplate");
+                if (this.props.checkDatafileSchema) {
+                    validateSchema(this.props.welllog, "WellLog");
+                }
+            } catch (e) {
+                this.setState({ errorText: String(e) });
+            }
         }
 
         if (this.logController) {
@@ -842,7 +879,7 @@ class WellLogView extends Component<Props, State> implements WellLogController {
         });
     }
 
-    /** 
+    /**
       Display current state of track scrolling
       */
     onTrackScroll(): void {
@@ -1221,9 +1258,7 @@ class WellLogView extends Component<Props, State> implements WellLogController {
                 <div
                     style={{ flex: "1, 1" }}
                     className="welllogview"
-                    ref={(el) => {
-                        this.container = el as HTMLElement;
-                    }}
+                    ref={(el) => (this.container = el as HTMLElement)}
                 />
                 {this.state.errorText ? (
                     <div style={{ flex: "0, 0" }} className="welllogview-error">

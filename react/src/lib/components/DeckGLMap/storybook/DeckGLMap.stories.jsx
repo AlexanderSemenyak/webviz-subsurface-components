@@ -267,16 +267,32 @@ KhMapFlat.parameters = {
 };
 
 // Map3DLayer. Properties encoded in RGB.
-const map3DLayer = exampleData[0].layers[3];
-export const MapLayerRGBEncodedProperties = EditDataTemplate.bind({});
-MapLayerRGBEncodedProperties.args = {
-    ...exampleData[0],
+const meshMapLayer = {
+    "@@type": "Map3DLayer",
+    id: "mesh-layer",
+    bounds: [432205, 6475078, 437720, 6481113],
+    meshMaxError: 100,
+    mesh: "hugin_depth_25_m_normalized_margin.png",
+    meshValueRange: [2782, 3513],
+    propertyTexture: "kh_netmap_25_m_normalized_margin.png",
+    propertyValueRange: [2782, 3513],
+    rotDeg: 0,
+    contours: [0, 50.0],
+    isContoursDepth: false,
+    colorMapName: "Physics",
+};
+export const KhMapMesh = MinimalTemplate.bind({});
+KhMapMesh.args = {
+    id: "kh-mesh-map",
     layers: [
         {
-            ...map3DLayer,
-            visible: true,
+            ...meshMapLayer,
         },
     ],
+    toolbar: {
+        visible: false,
+    },
+    bounds: [432150, 6475800, 439400, 6481500],
     views: {
         layout: [1, 1],
         viewports: [
@@ -289,18 +305,100 @@ MapLayerRGBEncodedProperties.args = {
     },
 };
 
-// MapLayer. This is never Float32 resolution for properties.
-const mapLayer = exampleData[0].layers[4];
-export const MapLayerFloat32Properties = EditDataTemplate.bind({});
-MapLayerFloat32Properties.args = {
-    ...exampleData[0],
+//Material property may take these values:
+//          true  = default material. See deck.gl documentation for what that is. This is default property value.
+//          false = no material.
+//          Full spec:
+//                {
+//                    ambient: 0.35,
+//                    diffuse: 0.6,
+//                    shininess: 32,
+//                    specularColor: [255, 255, 255],
+//                }
+const material = {
+    ambient: 0.35,
+    diffuse: 0.6,
+    shininess: 32,
+    specularColor: [255, 255, 255],
+};
+export const MapMaterial = MinimalTemplate.bind({});
+MapMaterial.args = {
+    id: "material",
+    layers: [{ ...meshMapLayer, material }],
+    bounds: [432150, 6475800, 439400, 6481500],
+    views: {
+        layout: [1, 1],
+        viewports: [
+            {
+                id: "view_1",
+                show3D: false,
+                layerIds: [],
+            },
+        ],
+    },
+};
+MapMaterial.parameters = {
+    docs: {
+        description: {
+            story: "An example showing example usage of Map3D material property.",
+        },
+        inlineStories: false,
+        iframeHeight: 500,
+    },
+};
+
+// Exapmple of using "colorMapClampColor" property.
+// Clamps colormap to this color at ends.
+// Given as array of three values (r,g,b) e.g: [255, 0, 0]
+// If not set (undefined) or set to true, it will clamp to color map min and max values.
+// If set to false the clamp color will be completely transparent.
+const propertyValueRange = [2782, 3513];
+const colorMapRange = [3000, 3513];
+const colorMapClampColor = [0, 255, 0]; // a color e.g. [0, 255, 0],  false, true or undefined.
+
+export const MapClampColor = MinimalTemplate.bind({});
+MapClampColor.args = {
+    id: "clampcolor",
     layers: [
         {
-            ...mapLayer,
-            meshMaxError: 5.0,
-            visible: true,
+            ...meshMapLayer,
+            propertyValueRange,
+            colorMapRange,
+            colorMapClampColor,
         },
     ],
+    bounds: [432150, 6475800, 439400, 6481500],
+    views: {
+        layout: [1, 1],
+        viewports: [
+            {
+                id: "view_1",
+                show3D: false,
+                layerIds: [],
+            },
+        ],
+    },
+};
+MapClampColor.parameters = {
+    docs: {
+        description: {
+            story: 'An example usage of map property `"colorMapClampColor"',
+        },
+        inlineStories: false,
+        iframeHeight: 500,
+    },
+};
+
+const axes = {
+    "@@type": "AxesLayer",
+    id: "axes-layer",
+    bounds: [432205, 6475078, -3500, 437720, 6481113, 0],
+};
+export const Axes = MinimalTemplate.bind({});
+Axes.args = {
+    id: "axes",
+    layers: [meshMapLayer, axes],
+    bounds: [432150, 6475800, 439400, 6481500],
     views: {
         layout: [1, 1],
         viewports: [
@@ -324,6 +422,9 @@ GridLayer.args = {
             visible: true,
         },
     ],
+    toolbar: {
+        visible: false,
+    },
     views: {
         layout: [1, 1],
         viewports: [
@@ -397,4 +498,97 @@ MultiView.args = {
             },
         ],
     },
+};
+
+// Experimental MapLayer. This is newer Float32 resolution for properties.
+const mapLayer = {
+    "@@type": "MapLayer",
+    id: "map-layer-float32",
+    mesh: "./volve_hugin_depth_absolute.png",
+    bounds: [432205, 6475078, 437720, 6481113],
+    meshMaxError: 100,
+    propertyTexture: "./volve_property_ieee_float.png",
+    rotDeg: 0,
+    contours: [0, 20.0],
+    colorMapName: "Physics",
+    colorMapRange: [-3071, 41048],
+};
+export const ExperimentalMapLayerFloat32Property = EditDataTemplate.bind({});
+ExperimentalMapLayerFloat32Property.args = {
+    ...exampleData[0],
+    layers: [
+        {
+            ...mapLayer,
+            meshMaxError: 5.0,
+            visible: true,
+        },
+    ],
+    views: {
+        layout: [1, 1],
+        viewports: [
+            {
+                id: "view_1",
+                show3D: true,
+                layerIds: [],
+            },
+        ],
+    },
+};
+
+ExperimentalMapLayerFloat32Property.parameters = {
+    title: "Test",
+    docs: {
+        description: {
+            story: "An experimental layer using a Float 32 encoded property map.",
+        },
+        inlineStories: false,
+        iframeHeight: 500,
+    },
+};
+
+// ---------Selectable GeoJson Layer example--------------- //
+export const SelectableFeatureExample = (args) => {
+    const [editedData, setEditedData] = React.useState(args.editedData);
+    React.useEffect(() => {
+        setEditedData(args.editedData);
+    }, [args.editedData]);
+    return (
+        <div>
+            <DeckGLMap
+                {...args}
+                editedData={editedData}
+                setProps={(updatedProps) => {
+                    setEditedData(updatedProps.editedData);
+                }}
+            />
+            <pre>{JSON.stringify(editedData, null, 2)}</pre>
+        </div>
+    );
+};
+
+SelectableFeatureExample.parameters = {
+    docs: {
+        description: {
+            story: "An example showing selectable feature example from the map.",
+        },
+    },
+};
+
+const polylineUsingSelectableGeoJsonLayer = {
+    ...customLayerWithPolylineData,
+    "@@type": "SelectableGeoJsonLayer",
+};
+
+const polygonUsingSelectableGeoJsonLayer = {
+    ...customLayerWithPolygonData,
+    "@@type": "SelectableGeoJsonLayer",
+};
+
+SelectableFeatureExample.args = {
+    id: "DeckGL-Map",
+    bounds: [432205, 6475078, 437720, 6481113],
+    layers: [
+        polylineUsingSelectableGeoJsonLayer,
+        polygonUsingSelectableGeoJsonLayer,
+    ],
 };
