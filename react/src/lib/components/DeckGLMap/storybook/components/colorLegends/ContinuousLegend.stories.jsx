@@ -4,7 +4,7 @@ export default {
     component: ContinuousLegend,
     title: "DeckGLMap/Components/ColorLegends/ContinuousLegend",
 };
-import colorTables from "@emerson-eps/color-tables/src/component/color-tables.json";
+import colorTables from "@emerson-eps/color-tables/dist/component/color-tables.json";
 
 const min = 0;
 const max = 0.35;
@@ -13,6 +13,7 @@ const position = [16, 10];
 const name = "PORO";
 const horizontal = false;
 const colorName = "Rainbow";
+const reverseRange = false;
 
 const Template = (args) => {
     return <ContinuousLegend {...args} />;
@@ -28,4 +29,5 @@ ContinuousTemplate.args = {
     colorName,
     colorTables,
     horizontal,
+    reverseRange,
 };
