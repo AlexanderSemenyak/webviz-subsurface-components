@@ -1,0 +1,239 @@
+import type {
+    Color,
+    LayerContext,
+    LayerProps,
+    UpdateParameters,
+    Viewport,
+} from "@deck.gl/core";
+import { Layer, OrthographicViewport, project32 } from "@deck.gl/core";
+
+import type { Device } from "@luma.gl/core";
+import { Geometry, Model } from "@luma.gl/engine";
+import type { ShaderModule } from "@luma.gl/shadertools";
+
+import { Vector3 } from "@math.gl/core";
+
+import type { ExtendedLayerProps } from "../utils/layerTools";
+
+import { precisionForTests } from "../shader_modules/test-precision/precisionForTests";
+
+import type { RGBAColor } from "../../utils";
+
+import fragmentShader from "./northarrow.fs.glsl";
+import vertexShader from "./northarrow.vs.glsl";
+
+export interface NorthArrow3DLayerProps extends ExtendedLayerProps {
+    color: Color;
+}
+
+const defaultProps = {
+    "@@type": "NorthArrow3DLayer",
+    name: "NorthArrow3D",
+    id: "north-arrow-layer",
+    visible: true,
+    color: [0, 0, 0, 1],
+};
+
+export default class NorthArrow3DLayer extends Layer<NorthArrow3DLayerProps> {
+    initializeState(context: LayerContext): void {
+        this.setState(this._getModels(context.device));
+    }
+
+    shouldUpdateState(): boolean {
+        return true;
+    }
+
+    updateState({ context }: UpdateParameters<this>): void {
+        if (context.device) {
+            this.setState(this._getModels(context.device));
+        }
+    }
+
+    setShaderModuleProps(
+        args: Partial<{
+            [x: string]: Partial<Record<string, unknown> | undefined>;
+        }>
+    ): void {
+        const color = (this.props.color ?? defaultProps.color).map((x, i) =>
+            i < 3 ? (x ?? 0) / 255 : 1
+        ) as RGBAColor;
+        super.setShaderModuleProps({
+            ...args,
+            northArrow3D: {
+                uColor: color,
+            },
+        });
+    }
+
+    // Signature from the base class, eslint doesn't like the any type.
+    // eslint-disable-next-line
+    draw(args: any): void {
+        const { gl } = args.context;
+        gl.disable(gl.DEPTH_TEST);
+        super.draw(args);
+        gl.enable(gl.DEPTH_TEST);
+    }
+
+    _getModels(device: Device) {
+        const model_lines = GetArrowLines();
+
+        const is_orthographic =
+            this.context.viewport.constructor === OrthographicViewport;
+
+        const view_at = new Vector3(this.unproject([100, 100, 0]));
+        let view_from = new Vector3(this.context.viewport.cameraPosition);
+
+        if (is_orthographic) {
+            const cam_pos_z = new Vector3(
+                (this.context.viewport as Viewport).cameraPosition
+            )[2];
+            view_from = new Vector3([view_at[0], view_at[1], cam_pos_z]);
+        }
+
+        const dir = new Vector3([
+            view_at[0] - view_from[0],
+            view_at[1] - view_from[1],
+            view_at[2] - view_from[2],
+        ]);
+        dir.normalize();
+        dir.scale(9999);
+
+        // pos: World coordinate for north arrow. Will be fixed relative to camera.
+        const pos = new Vector3([
+            view_from[0] + dir[0],
+            view_from[1] + dir[1],
+            view_from[2] + dir[2],
+        ]);
+
+        const lines: number[] = [];
+
+        const zoom = this.context.viewport.zoom;
+        const zoom_scale = Math.pow(2, zoom);
+        const scale = is_orthographic ? 15 / zoom_scale : 99;
+
+        for (let i = 0; i < model_lines.length / 3; i = i + 1) {
+            const x = model_lines[i * 3 + 0] * scale + pos[0];
+            const y = model_lines[i * 3 + 1] * scale + pos[1];
+            const z = model_lines[i * 3 + 2] * scale + pos[2];
+            lines.push(x, y, z);
+        }
+
+        const grids = new Model(device, {
+            id: `${this.props.id}-grids`,
+            ...super.getShaders({
+                vs: vertexShader,
+                fs: fragmentShader,
+                modules: [project32, precisionForTests, northArrow3DUniforms],
+            }),
+            geometry: new Geometry({
+                topology: "line-list",
+                attributes: {
+                    positions: new Float32Array(lines),
+                },
+                vertexCount: lines.length / 3,
+            }),
+            isInstanced: false, // This only works when set to false.
+        });
+
+        return {
+            model: grids,
+            models: [grids].filter(Boolean),
+            modelsByName: { grids },
+        };
+    }
+}
+
+NorthArrow3DLayer.layerName = "NorthArrow3DLayer";
+NorthArrow3DLayer.defaultProps = defaultProps;
+
+const northArrow3DUniformsBlock = `\
+uniform northArrow3DUniforms {
+    uniform vec4 uColor;
+} northArrow3D;
+`;
+
+type NorthArrow3DUniformsType = { uColor: RGBAColor };
+
+// NOTE: this must exactly the same name than in the uniform block
+const northArrow3DUniforms = {
+    name: "northArrow3D",
+    vs: undefined,
+    fs: northArrow3DUniformsBlock,
+    uniformTypes: {
+        uColor: "vec4<f32>",
+    },
+} as const satisfies ShaderModule<LayerProps, NorthArrow3DUniformsType>;
+
+//-- Local functions. --------------------------------------
+
+function GetArrowLines(): number[] {
+    const lines: number[][] = [];
+
+    let z = 0.5;
+    lines.push([-1, -2, z]);
+    lines.push([-1, 2, z]);
+
+    lines.push([-1, 2, z]);
+    lines.push([-1.5, 2, z]);
+
+    lines.push([-1.5, 2, z]);
+    lines.push([0, 4, z]);
+
+    lines.push([0, 4, z]);
+    lines.push([1.5, 2, z]);
+
+    lines.push([1.5, 2, z]);
+    lines.push([1, 2, z]);
+
+    lines.push([1, 2, z]);
+    lines.push([1, -2, z]);
+
+    lines.push([1, -2, z]);
+    lines.push([-1, -2, z]);
+
+    z = -0.5;
+    lines.push([-1, -2, z]);
+    lines.push([-1, 2, z]);
+
+    lines.push([-1, 2, z]);
+    lines.push([-1.5, 2, z]);
+
+    lines.push([-1.5, 2, z]);
+    lines.push([0, 4, z]);
+
+    lines.push([0, 4, z]);
+    lines.push([1.5, 2, z]);
+
+    lines.push([1.5, 2, z]);
+    lines.push([1, 2, z]);
+
+    lines.push([1, 2, z]);
+    lines.push([1, -2, z]);
+
+    lines.push([1, -2, z]);
+    lines.push([-1, -2, z]);
+
+    // stolper
+    lines.push([-1, -2, -0.5]);
+    lines.push([-1, -2, 0.5]);
+
+    lines.push([-1, 2, -0.5]);
+    lines.push([-1, 2, 0.5]);
+
+    lines.push([-1.5, 2, -0.5]);
+    lines.push([-1.5, 2, 0.5]);
+
+    lines.push([0, 4, -0.5]);
+    lines.push([0, 4, 0.5]);
+
+    lines.push([1.5, 2, -0.5]);
+    lines.push([1.5, 2, 0.5]);
+
+    lines.push([1, 2, -0.5]);
+    lines.push([1, 2, 0.5]);
+
+    lines.push([1, -2, -0.5]);
+    lines.push([1, -2, 0.5]);
+
+    return lines.flat();
+}
